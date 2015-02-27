@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from collections import defaultdict
+from collections import defaultdict, Counter
 import itertools
 
 __author__ = "Sergey Aganezov"
@@ -141,3 +141,11 @@ if __name__ == "__main__":
         cnt = sum(map(lambda scaffold: len(shrunk_genomes[genome][scaffold]), shrunk_genomes[genome]))
         print("\t{genome_name}: {g_cnt}".format(genome_name=genome,
                                                 g_cnt=cnt))
+
+    scaffold_lengths_per_genome = {}
+    scaffold_length_counter_per_genome = {}
+    print("\nScaffold lengths")
+    for genome in shrunk_genomes:
+        scaffold_lengths_per_genome[genome] = [len(shrunk_genomes[genome][scaffold]) for scaffold in shrunk_genomes[genome]]
+        scaffold_length_counter_per_genome[genome] = Counter(scaffold_lengths_per_genome[genome])
+        print("\t{genome_name}: {counter}".format(genome_name=genome, counter=str(scaffold_length_counter_per_genome[genome])))
