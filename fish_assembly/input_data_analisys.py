@@ -81,8 +81,8 @@ if __name__ == "__main__":
                                                              key=lambda item: (int(item[1]), int(item[2]), item[0]))
         print("\t", genome_name, ":", len(genomes[genome_name]), "vs", len(scaffold_counter[genome_name]))
 
-    with open("non_consistent_gene_ids.txt", "w") as source:
-        print("Non-consistent genes:", file=source)
+    with open("not_scaffold_consistent_gene_ids.txt", "w") as source:
+        print("Not scaffold-consistent genes:", file=source)
         print("\n\nNon-consistent genes:")
         for genome in genomes:
             visited_genes = defaultdict(set)
