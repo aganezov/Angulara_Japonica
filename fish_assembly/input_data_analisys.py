@@ -76,9 +76,9 @@ if __name__ == "__main__":
 
             if len(genomes[genome_name][scaffold_name]) == 0:
                 del genomes[genome_name][scaffold_name]
-            else:
-                genomes[genome_name][scaffold_name] = sorted(genomes[genome_name][scaffold_name],
-                                                             key=lambda item: (int(item[1]), int(item[2]), item[0]))
+            # else:
+            #     genomes[genome_name][scaffold_name] = sorted(genomes[genome_name][scaffold_name],
+            #                                                  key=lambda item: (int(item[1]), int(item[2]), item[0]))
         print("\t", genome_name, ":", len(genomes[genome_name]), "vs", len(scaffold_counter[genome_name]))
 
     with open("not_scaffold_consistent_gene_ids.txt", "w") as source:
@@ -115,19 +115,29 @@ if __name__ == "__main__":
         for genome in genomes:
             bad_genes = set()
             for scaffold_name, genes in genomes[genome].items():
-                current_gene_id, *genes = genes
-                current_gene_id, current_strand = current_gene_id[0], current_gene_id[3]
-                shrunk_genomes[genome][scaffold_name].append(current_gene_id)
+                gene, *genes = genes
+                current_gene_id, current_strand = gene[0], gene[3]
+                shrunk_genomes[genome][scaffold_name].append(gene)
                 for gene in genes:
                     gene_id, start, finish, strand = gene
                     if gene_id != current_gene_id:
                         current_gene_id = gene_id
                         current_strand = strand
                         shrunk_genomes[genome][scaffold_name].append(gene)
-                    elif strand != current_strand and gene_id not in bad_genes:
-                        bad_genes.add(gene_id)
+                    else:
+                        if strand != current_strand and gene_id not in bad_genes:
+                            bad_genes.add(gene_id)
+                        new_data = tuple(item if cnt != 2 else finish for item, cnt in
+                                    enumerate(shrunk_genomes[genome][scaffold_name][-1]))
+                        shrunk_genomes[genome][scaffold_name][-1] = new_data
             print("\tGenome {genome_name} contains {bgid_cnt} strand inconsistent gene ids"
                   "".format(genome_name=genome, bgid_cnt=len(bad_genes)))
             if len(bad_genes) > 0:
                 print(genome, file=source)
                 print("\n".join(bad_genes), file=source)
+
+    print("\nGlued genomes gene cnt:")
+    for genome in shrunk_genomes:
+        cnt = sum(map(lambda scaffold: len(shrunk_genomes[genome][scaffold]), shrunk_genomes[genome]))
+        print("\t{genome_name}: {g_cnt}".format(genome_name=genome,
+                                                g_cnt=cnt))
