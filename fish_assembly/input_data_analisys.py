@@ -81,11 +81,28 @@ if __name__ == "__main__":
                                                              key=lambda item: (int(item[1]), int(item[2]), item[0]))
         print("\t", genome_name, ":", len(genomes[genome_name]), "vs", len(scaffold_counter[genome_name]))
 
-    # print("\n\n Gene parts check:")
-    # for genome_name in scaffold_counter:
-    #     for scaffold_name in scaffold_counter[genome_name]:
-    #         if len(genomes[genome_name][scaffold_name]) > 1:
-    #             for prev_gene, following_gene in zip(genomes[genome_name][scaffold_name][:-1],
-    #                                                  genomes[genome_name][scaffold_name][1:]):
-    #                 if int(prev_gene[2]) > int(following_gene[1]):
-    #                     print("\t", genome_name, ":", scaffold_name, ": ", prev_gene, " -- ", following_gene)
+    with open("non_consistent_gene_ids.txt", "w") as source:
+        print("Non-consistent genes:", file=source)
+        print("\n\nNon-consistent genes:")
+        for genome in genomes:
+            visited_genes = defaultdict(set)
+            bad_genes = set()
+            for scaffold_name, genes in genomes[genome].items():
+                visited_genes_on_this_scaffold = set()
+                current_gene, *genes = genes
+                visited_genes_on_this_scaffold.add(current_gene[0])
+                for gene in genes:
+                    gene_name, start, finish, strand = gene
+                    if gene_name in visited_genes and gene_name not in bad_genes:
+                        bad_genes.add(gene_name)
+                    visited_genes_on_this_scaffold.add(gene_name)
+                for gene_name in visited_genes_on_this_scaffold:
+                    visited_genes[gene_name].add(scaffold_name)
+            print("\tGenome {genome_name} contains {bgid_cnt} bad gene ids".format(genome_name=genome,
+                                                                                   bgid_cnt=len(bad_genes)))
+            if len(bad_genes) > 0:
+                print(genome, file=source)
+            for gene_name in bad_genes:
+                print("\t\tGene id was found on multiple scaffolds ({scaffold_list})"
+                      "".format(genome_name=genome, gene_name=gene_name,
+                                scaffold_list=",".join(visited_genes[gene_name])), file=source)
