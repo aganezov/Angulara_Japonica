@@ -163,3 +163,8 @@ if __name__ == "__main__":
                                                      shrunk_genomes[genome][scaffold_name]]
             shrunk_genomes[genome][scaffold_name] = sorted(shrunk_genomes[genome][scaffold_name],
                                                            key=lambda entry: entry[1])
+
+    all_orth = {orth for genome_name in shrunk_genomes for orth in genes_orth[genome_name].values()}
+    print("\nOverall different orthologous: {orth_cnt}".format(orth_cnt=len(all_orth)))
+
+    orth_dict = {orth: number for orth, number in enumerate(sorted(all_orth))}
