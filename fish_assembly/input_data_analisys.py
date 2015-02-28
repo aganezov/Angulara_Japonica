@@ -30,7 +30,7 @@ if __name__ == "__main__":
             for row in reader:
                 scaffold_counter[genome_name].add(row[0])
                 genes_per_genome[genome_name].add(row[8].split(" ")[1][1:-2])
-                genomes[genome_name][row[0]].append((row[8].split(" ")[1][1:-2], row[3], row[4], row[6]))
+                genomes[genome_name][row[0]].append((row[8].split(" ")[1][1:-2], int(row[3]), int(row[4]), row[6]))
 
     for genome_name in scaffold_counter:
         assert len(genomes[genome_name]) == len(scaffold_counter[genome_name])
@@ -76,9 +76,9 @@ if __name__ == "__main__":
 
             if len(genomes[genome_name][scaffold_name]) == 0:
                 del genomes[genome_name][scaffold_name]
-            # else:
-            #     genomes[genome_name][scaffold_name] = sorted(genomes[genome_name][scaffold_name],
-            #                                                  key=lambda item: (int(item[1]), int(item[2]), item[0]))
+                # else:
+                # genomes[genome_name][scaffold_name] = sorted(genomes[genome_name][scaffold_name],
+                # key=lambda item: (int(item[1]), int(item[2]), item[0]))
         print("\t", genome_name, ":", len(genomes[genome_name]), "vs", len(scaffold_counter[genome_name]))
 
     with open("not_scaffold_consistent_gene_ids.txt", "w") as source:
@@ -109,27 +109,31 @@ if __name__ == "__main__":
                                 scaffold_list=",".join(visited_genes[gene_name])), file=source)
 
     shrunk_genomes = defaultdict(lambda: defaultdict(list))
-    with open("non_strand_consistent_gene_ids.txt", "w") as source:
+    with open("not_strand_consistent_gene_ids.txt", "w") as source:
         print("Not strand-consistent gene_ids", file=source)
         print("\n\nNot strand-consistent gene_ids")
         for genome in genomes:
             bad_genes = set()
             for scaffold_name, genes in genomes[genome].items():
                 gene, *genes = genes
-                current_gene_id, current_strand = gene[0], gene[3]
+                current_gene_id, current_strand, current_start, current_finish = gene[0], gene[3], gene[1], gene[2]
                 shrunk_genomes[genome][scaffold_name].append(gene)
                 for gene in genes:
                     gene_id, start, finish, strand = gene
                     if gene_id != current_gene_id:
+                        shrunk_genomes[genome][scaffold_name].append(
+                            (current_gene_id, current_start, current_finish, current_strand))
                         current_gene_id = gene_id
                         current_strand = strand
-                        shrunk_genomes[genome][scaffold_name].append(gene)
+                        current_start = start
+                        current_finish = finish
                     else:
+                        current_finish = finish
                         if strand != current_strand and gene_id not in bad_genes:
                             bad_genes.add(gene_id)
-                        new_data = tuple(item if cnt != 2 else finish for item, cnt in
-                                    enumerate(shrunk_genomes[genome][scaffold_name][-1]))
-                        shrunk_genomes[genome][scaffold_name][-1] = new_data
+                            # new_data = tuple(item if cnt != 2 else finish for item, cnt in
+                            # enumerate(shrunk_genomes[genome][scaffold_name][-1]))
+                            # shrunk_genomes[genome][scaffold_name][-1] = new_data
             print("\tGenome {genome_name} contains {bgid_cnt} strand inconsistent gene ids"
                   "".format(genome_name=genome, bgid_cnt=len(bad_genes)))
             if len(bad_genes) > 0:
@@ -146,6 +150,16 @@ if __name__ == "__main__":
     scaffold_length_counter_per_genome = {}
     print("\nScaffold lengths")
     for genome in shrunk_genomes:
-        scaffold_lengths_per_genome[genome] = [len(shrunk_genomes[genome][scaffold]) for scaffold in shrunk_genomes[genome]]
+        scaffold_lengths_per_genome[genome] = [len(shrunk_genomes[genome][scaffold]) for scaffold in
+                                               shrunk_genomes[genome]]
         scaffold_length_counter_per_genome[genome] = Counter(scaffold_lengths_per_genome[genome])
-        print("\t{genome_name}: {counter}".format(genome_name=genome, counter=str(scaffold_length_counter_per_genome[genome])))
+        print("\t{genome_name}: {counter}".format(genome_name=genome,
+                                                  counter=str(scaffold_length_counter_per_genome[genome])))
+
+    for genome in scaffold_counter:
+        for scaffold_name in scaffold_counter[genome]:
+            shrunk_genomes[genome][scaffold_name] = [(gene_id, (start + finish) / 2, strand) for
+                                                     gene_id, start, finish, strand in
+                                                     shrunk_genomes[genome][scaffold_name]]
+            shrunk_genomes[genome][scaffold_name] = sorted(shrunk_genomes[genome][scaffold_name],
+                                                           key=lambda entry: entry[1])
