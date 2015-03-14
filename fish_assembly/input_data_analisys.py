@@ -9,11 +9,12 @@ __status__ = "develop"
 import os
 import csv
 
-DATA_ROOT = os.path.abspath(os.path.sep.join(["..", "data", "fish_genome"]))
+RAW_DATA_ROOT = os.path.abspath(os.path.sep.join(["..", "data", "fish_genome"]))
+GRIMM_DATA_ROOT = os.path.abspath(os.path.sep.join(["..", "data", "grimm"]))
 
 if __name__ == "__main__":
-    gtf_files = [file_name for file_name in os.listdir(DATA_ROOT) if file_name.endswith(".gtf")]
-    gene_name_files = [file_name for file_name in os.listdir(DATA_ROOT) if
+    gtf_files = [file_name for file_name in os.listdir(RAW_DATA_ROOT) if file_name.endswith(".gtf")]
+    gene_name_files = [file_name for file_name in os.listdir(RAW_DATA_ROOT) if
                        "gene_name" in file_name and not file_name.startswith(".")]
     print("GTF files:\n\t", "\n\t".join(gtf_files), "\n", sep="")
     print("Gene name files:\n\t", "\n\t".join(gene_name_files), "\n", sep="")
@@ -24,7 +25,7 @@ if __name__ == "__main__":
     genomes = defaultdict(lambda: defaultdict(list))
     for gtf_files in gtf_files:
         genome_name = gtf_files.split(".")[0]
-        full_file_name = os.path.sep.join([DATA_ROOT, gtf_files])
+        full_file_name = os.path.sep.join([RAW_DATA_ROOT, gtf_files])
         with open(full_file_name, "rt") as source:
             reader = csv.reader(source, delimiter='\t', quotechar='"')
             for row in reader:
@@ -36,8 +37,8 @@ if __name__ == "__main__":
         assert len(genomes[genome_name]) == len(scaffold_counter[genome_name])
     for gene_name_file in gene_name_files:
         genome_name = gene_name_file.split(".")[0]
-        full_file_name = full_file_name = os.path.sep.join([DATA_ROOT, gene_name_file])
-        full_file_name = os.path.sep.join([DATA_ROOT, gene_name_file])
+        full_file_name = full_file_name = os.path.sep.join([RAW_DATA_ROOT, gene_name_file])
+        full_file_name = os.path.sep.join([RAW_DATA_ROOT, gene_name_file])
         with open(full_file_name, "rt") as source:
             reader = csv.reader(source, delimiter='\t', quotechar='"')
             if genome_name != "Anguilla_japonica":
@@ -156,15 +157,57 @@ if __name__ == "__main__":
         print("\t{genome_name}: {counter}".format(genome_name=genome,
                                                   counter=str(scaffold_length_counter_per_genome[genome])))
 
-    for genome in scaffold_counter:
-        for scaffold_name in scaffold_counter[genome]:
-            shrunk_genomes[genome][scaffold_name] = [(gene_id, (start + finish) / 2, strand) for
-                                                     gene_id, start, finish, strand in
-                                                     shrunk_genomes[genome][scaffold_name]]
-            shrunk_genomes[genome][scaffold_name] = sorted(shrunk_genomes[genome][scaffold_name],
-                                                           key=lambda entry: entry[1])
+    # bad_genomes = []
+    bad_genomes = ["Atlantic_cod"]
 
-    all_orth = {orth for genome_name in shrunk_genomes for orth in genes_orth[genome_name].values()}
+    for genome_name in scaffold_counter:
+        if genome_name in bad_genomes:
+            del shrunk_genomes[genome_name]
+
+    # print(shrunk_genomes.keys())
+    for genome in scaffold_counter:
+        if genome in shrunk_genomes:
+            for scaffold_name in scaffold_counter[genome]:
+                shrunk_genomes[genome][scaffold_name] = [(gene_id, (start + finish) / 2, strand) for
+                                                         gene_id, start, finish, strand in
+                                                         shrunk_genomes[genome][scaffold_name]]
+                shrunk_genomes[genome][scaffold_name] = sorted(shrunk_genomes[genome][scaffold_name],
+                                                               key=lambda entry: entry[1])
+
+    all_orth = set()
+    for genome in shrunk_genomes:
+        for key, value in genes_orth[genome].items():
+            all_orth.add(value)
+    orth_dict = {orth: number for number, orth in enumerate(sorted(all_orth))}
+
     print("\nOverall different orthologous: {orth_cnt}".format(orth_cnt=len(all_orth)))
 
-    orth_dict = {orth: number for orth, number in enumerate(sorted(all_orth))}
+    grimm_formatted_genomes = defaultdict(lambda: defaultdict(list))
+    for genome in shrunk_genomes:
+        for scaffold_name in shrunk_genomes[genome]:
+            for gene_name, coordinate, strand in shrunk_genomes[genome][scaffold_name]:
+                strand = "-" if strand == "-1" else "+"
+                orth_gene_name = orth_dict[genes_orth[genome][gene_name]]
+                grimm_formatted_genomes[genome][scaffold_name].append((strand, orth_gene_name))
+
+    print("\nGRIMM Formatted data")
+    if not os.path.exists(GRIMM_DATA_ROOT):
+        os.mkdir(GRIMM_DATA_ROOT)
+    target_directory_rel_name = "8_genomes_no_Atlantic_cod"
+    target_directory = os.path.join(GRIMM_DATA_ROOT, target_directory_rel_name)
+    if not os.path.exists(target_directory):
+        os.mkdir(target_directory)
+    for genome in grimm_formatted_genomes:
+        with open(os.path.join(target_directory, genome) + ".grimm", "w") as target:
+            print("\t>", genome)
+            print(">", genome, file=target, sep="")
+            for scaffold_name in grimm_formatted_genomes[genome]:
+                print("\t#", scaffold_name)
+                print("#", scaffold_name, file=target)
+                print("\t", " ".join(
+                    strand + str(gene_name) for strand, gene_name in grimm_formatted_genomes[genome][scaffold_name]),
+                      "$")
+                print(" ".join(
+                    strand + str(gene_name) for strand, gene_name in grimm_formatted_genomes[genome][scaffold_name]),
+                      "$", file=target)
+        print()
