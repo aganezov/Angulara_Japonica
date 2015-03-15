@@ -157,13 +157,6 @@ if __name__ == "__main__":
         print("\t{genome_name}: {counter}".format(genome_name=genome,
                                                   counter=str(scaffold_length_counter_per_genome[genome])))
 
-    # bad_genomes = []
-    bad_genomes = ["Atlantic_cod"]
-
-    for genome_name in scaffold_counter:
-        if genome_name in bad_genomes:
-            del shrunk_genomes[genome_name]
-
     # print(shrunk_genomes.keys())
     for genome in scaffold_counter:
         if genome in shrunk_genomes:
@@ -182,6 +175,13 @@ if __name__ == "__main__":
 
     print("\nOverall different orthologous: {orth_cnt}".format(orth_cnt=len(all_orth)))
 
+    # bad_genomes = []
+    bad_genomes = ["Atlantic_cod", "Euro_eel"]
+
+    for genome_name in scaffold_counter:
+        if genome_name in bad_genomes:
+            del shrunk_genomes[genome_name]
+
     grimm_formatted_genomes = defaultdict(lambda: defaultdict(list))
     for genome in shrunk_genomes:
         for scaffold_name in shrunk_genomes[genome]:
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     print("\nGRIMM Formatted data")
     if not os.path.exists(GRIMM_DATA_ROOT):
         os.mkdir(GRIMM_DATA_ROOT)
-    target_directory_rel_name = "8_genomes_no_Atlantic_cod"
+    target_directory_rel_name = "7_genomes_no_Atlantic_cod_no_Euro_eel"
     target_directory = os.path.join(GRIMM_DATA_ROOT, target_directory_rel_name)
     if not os.path.exists(target_directory):
         os.mkdir(target_directory)
