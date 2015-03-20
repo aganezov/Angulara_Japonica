@@ -9,6 +9,8 @@ __status__ = "develop"
 import os
 import csv
 
+from bg import BreakpointGraph, GRIMMReader, BGVertex, Multicolor
+
 RAW_DATA_ROOT = os.path.abspath(os.path.sep.join(["..", "data", "fish_genome"]))
 GRIMM_DATA_ROOT = os.path.abspath(os.path.sep.join(["..", "data", "grimm"]))
 
@@ -176,7 +178,7 @@ if __name__ == "__main__":
     print("\nOverall different orthologous: {orth_cnt}".format(orth_cnt=len(all_orth)))
 
     # bad_genomes = []
-    bad_genomes = ["Atlantic_cod", "Euro_eel"]
+    bad_genomes = ["Atlantic_cod"]
 
     for genome_name in scaffold_counter:
         if genome_name in bad_genomes:
@@ -190,24 +192,74 @@ if __name__ == "__main__":
                 orth_gene_name = orth_dict[genes_orth[genome][gene_name]]
                 grimm_formatted_genomes[genome][scaffold_name].append((strand, orth_gene_name))
 
-    print("\nGRIMM Formatted data")
+    # print("\nGRIMM Formatted data")
     if not os.path.exists(GRIMM_DATA_ROOT):
         os.mkdir(GRIMM_DATA_ROOT)
-    target_directory_rel_name = "7_genomes_no_Atlantic_cod_no_Euro_eel"
+    target_directory_rel_name = "8_genomes_no_Atlantic_cod"
     target_directory = os.path.join(GRIMM_DATA_ROOT, target_directory_rel_name)
     if not os.path.exists(target_directory):
         os.mkdir(target_directory)
     for genome in grimm_formatted_genomes:
         with open(os.path.join(target_directory, genome) + ".grimm", "w") as target:
-            print("\t>", genome)
+            # print("\t>", genome)
             print(">", genome, file=target, sep="")
             for scaffold_name in grimm_formatted_genomes[genome]:
-                print("\t#", scaffold_name)
+                # print("\t#", scaffold_name)
                 print("#", scaffold_name, file=target)
-                print("\t", " ".join(
-                    strand + str(gene_name) for strand, gene_name in grimm_formatted_genomes[genome][scaffold_name]),
-                      "$")
+                # print("\t", " ".join(
+                #     strand + str(gene_name) for strand, gene_name in grimm_formatted_genomes[genome][scaffold_name]),
+                #       "$")
                 print(" ".join(
                     strand + str(gene_name) for strand, gene_name in grimm_formatted_genomes[genome][scaffold_name]),
                       "$", file=target)
-        print()
+        # print()
+
+    bg_graphs = dict()
+    for file_name in os.listdir(target_directory):
+        file_name = os.path.join(target_directory, file_name)
+        with open(file_name, "r") as source:
+            bg = GRIMMReader.get_breakpoint_graph(source)
+            bg_graphs[file_name.split(".")[0]] = bg
+    bg = BreakpointGraph()
+    for br_gr in bg_graphs.values():
+        bg.update(br_gr, merge_edges=True)
+
+    target_multicolor = Multicolor("Anguilla_japonica")
+
+    print("Breakpoint graph stats:")
+    print("\t", "non-infinity nodes count:", len(list(node for node in bg.nodes() if not BGVertex.is_infinity_vertex(node))))
+    normal_edges, infinity_edges = [], []
+    for edge in bg.edges():
+        if edge.is_infinity_edge:
+            infinity_edges.append(edge)
+        else:
+            normal_edges.append(edge)
+    print("\t", "non-infinity edges count:", len(normal_edges))
+    print("\t", "infinity edges count:", len(infinity_edges))
+    print("\t", "connected component count:", len(list(bg.connected_components_subgraphs())))
+
+    print()
+    print()
+
+    cc_cnt_with_exactly_two_targeted_infinity_edges = 0
+    for cnt, cc in enumerate(bg.connected_components_subgraphs()):
+        infinity_edges = defaultdict(int)
+        targeted_infinity_edges = []
+        targeted_infinity_edges_no_account_for_multiplicity = []
+        for edge in cc.edges():
+            if edge.is_infinity_edge:
+                infinity_edges[tuple(sorted(edge.multicolor.colors))] += 1
+                if edge.multicolor == target_multicolor:
+                    targeted_infinity_edges.append(edge)
+                elif edge.multicolor.colors == target_multicolor.colors:
+                    targeted_infinity_edges_no_account_for_multiplicity.append(edge)
+        if len(targeted_infinity_edges) > 1 or len(targeted_infinity_edges_no_account_for_multiplicity) > 1:
+            print("\t", "processing connected component", cnt)
+            print("\t\t", "overall number of infinity edges", sum(infinity_edges.values()))
+            print("\t\t", "number of targeted infinity edges accounting for multiplicity", len(targeted_infinity_edges))
+            print("\t\t", "number of targeted infinity edges no accounting for multiplicity", len(targeted_infinity_edges_no_account_for_multiplicity))
+            if len(targeted_infinity_edges) == 2 or len(targeted_infinity_edges_no_account_for_multiplicity) == 2:
+                cc_cnt_with_exactly_two_targeted_infinity_edges += 1
+            print()
+
+    print("possible assembly points: ", cc_cnt_with_exactly_two_targeted_infinity_edges)
